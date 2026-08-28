@@ -1,0 +1,39 @@
+MODEL:
+  DECODER_LAYERS: 2
+  ENCODER_LAYERS: 1
+  ESM_CHECKPOINT: facebook/esm2_t6_8M_UR50D
+  MLP_LAYERS: 3
+  PRECODER_LAYERS: 1
+  SELFATT_DIM_EXPANSION: 2
+TEST:
+  BATCH_SIZE: 400
+  DATASETS:
+  - - heldout_val
+    - data/splits/exp1_data_inclusion/test/heldout_val.tsv
+    - false
+  - - all_target
+    - data/splits/exp1_data_inclusion/test/all_target.tsv
+    - false
+  - - pretrain_mem
+    - data/splits/exp1_data_inclusion/test/pretrain_mem.tsv
+    - false
+  - - control
+    - data/splits/exp1_data_inclusion/test/control_per_cluster
+    - false
+  - - target
+    - data/splits/exp1_data_inclusion/test/target_per_cluster
+    - false
+  - - all_control
+    - data/splits/exp1_data_inclusion/test/all_control.tsv
+    - false
+  TARGET_DATASET: heldout_val
+TRAIN:
+  BATCH_SIZE: 200
+  DATASET_PATH: data/splits/exp1_data_inclusion/target_train/100/pretrain_with_all_target_train.tsv
+  EARLY_STOPPING_PATIENCE_STEPS: 2500
+  EVAL_STEPS: 100
+  LR: 3e-4
+  MAX_STEPS: 8500
+
+
+

@@ -1,0 +1,23 @@
+# FLEET.PRETRAINED_CHECKPOINT: the directory this experiment's pretrain config writes; the fine-tune starts from its last checkpoint. Point it elsewhere if you keep checkpoints elsewhere.
+FLEET:
+  PRETRAINED_CHECKPOINT: checkpoints/exp2_d_esm/within/pretrain/
+  VAL_DIR: data/splits/exp2_d_esm/within/3.5_4.0/wt1_test
+  TEST_DIR: data/splits/exp2_d_esm/within/3.5_4.0/wt2_test
+  TRAIN_DIR: data/splits/exp2_d_esm/within/3.5_4.0/wt2_train
+MODEL:
+  DECODER_LAYERS: 2
+  ENCODER_LAYERS: 1
+  ESM_CHECKPOINT: facebook/esm2_t6_8M_UR50D
+  MLP_LAYERS: 3
+  PRECODER_LAYERS: 1
+  SELFATT_DIM_EXPANSION: 2
+TEST:
+  BATCH_SIZE: 400
+TRAIN:
+  BATCH_SIZE: 400
+  DROPOUT: 0.0
+  EARLY_STOPPING_PATIENCE_STEPS: 250
+  EVAL_STEPS: 50
+  LR: 1e-4
+  MAX_STEPS: 1200
+
