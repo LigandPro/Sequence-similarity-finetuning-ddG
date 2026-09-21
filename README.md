@@ -15,7 +15,6 @@ a fine-tuning set and an evaluation set determines the gain from fine-tuning.
 - Python 3.10 or newer, and [uv](https://docs.astral.sh/uv/)
 - One CUDA GPU (the authors used A100s)
 - Disk space for checkpoints: 25–100 GB per experiment, see [Disk space](#disk-space)
-- Internet access on first run, to download the ESM-2 weights from Hugging Face
 - Optional, only for rebuilding the derived tables: `mmseqs`, `makeblastdb` and `blastp` on
   `PATH`
 
