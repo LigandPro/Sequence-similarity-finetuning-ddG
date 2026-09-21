@@ -1,141 +1,125 @@
 # Sequence-similarity fine-tuning for ddG prediction
 
 Code and data for the paper *Protein sequence similarity governs interpolation in ΔΔG
-prediction*: how the sequence similarity between a fine-tuning set and an evaluation set
-governs how much fine-tuning helps a protein stability (ddG) predictor.
+prediction*.
+
+The model is a siamese cross-attention head over ESM-2 8M that regresses ddG from a
+(wild type, mutant) sequence pair. The experiments measure how the sequence similarity between
+a fine-tuning set and an evaluation set determines the gain from fine-tuning.
 
 - Repository: https://github.com/LigandPro/Sequence-similarity-finetuning-ddG
-- Data record: https://doi.org/10.5281/zenodo.22207909 — the two source files too large for
-  GitHub. `python data/fetch_raw_data.py` downloads both and verifies their checksums.
-- Model: a siamese cross-attention head over ESM-2 8M, trained to regress ddG from a
-  (wild type, mutant) sequence pair.
-- Four experiments, each a self-contained bundle under `experiments/`, plus the configs of the
-  650M repeat of Exp 1.
+- Data record: https://doi.org/10.5281/zenodo.22207909
 
-This repository contains only code and source data. Every number in the paper is regenerated
-by training the models: nothing here records what the authors' runs produced. Run the
-pipeline and compare your figures with the paper's.
+## Requirements
 
-## What is in the repository
+- Python 3.10 or newer, and [uv](https://docs.astral.sh/uv/)
+- One CUDA GPU (the authors used A100s)
+- Internet access on first run, to download the ESM-2 weights from Hugging Face
+- Optional, only for rebuilding the derived tables: `mmseqs`, `makeblastdb` and `blastp` on
+  `PATH`
 
-```
-data/
-  fetch_raw_data.py         downloads the two large source files from Zenodo
-  build_cluster_map.py      MMseqs2 clustering of the wild types (optional rebuild)
-  build_blast_table.py      all-versus-all blastp (optional rebuild)
-  build_wt_embeddings.py    mean-pooled ESM-2 embeddings of the wild types (optional rebuild)
-  sources/                  5 ddG datasets + cluster map + BLAST table, and SOURCES.md
-experiments/<name>/
-  README.md                 the question, the split, the commands, what to compare with
-  build_split.py            writes data/splits/<name>/ from data/sources/
-  configs/                  one YAML per training run
-  figures.py                results/<name>*.tsv -> figures/*.svg
-experiments/exp1_data_inclusion_650m/   two configs for the 650M repeat of Exp 1
-figures/point_cloud.py      the data-partition schematic (Fig. 1, panel c), synthetic
-src/thermality/
-  config.py                 yacs defaults; a run is identified by its config path
-  train.py                  pretraining: one model, evaluated per cluster
-  finetune.py               fine-tuning: one model per cluster from a pretrained checkpoint
-  run_experiment.py         runs every config of a bundle in order on one GPU
-  collect_results.py        results/runs/<name>/*.tsv -> results/<name>*.tsv
-  model/                    the architecture, datasets, collation, metrics
-```
-
-Everything the pipeline writes is git-ignored: `data/splits/`, `checkpoints/`, `results/`,
-`figures/*.svg`, `logs/`.
-
-## Install
+## Installation
 
 ```
+git clone https://github.com/LigandPro/Sequence-similarity-finetuning-ddG.git
+cd Sequence-similarity-finetuning-ddG
 uv sync
+source .venv/bin/activate
 ```
 
-Python 3.10 or newer. `uv sync` installs the pinned dependency set from `uv.lock`.
+`uv sync` installs the dependency set pinned in `uv.lock`. If `torch.cuda.is_available()`
+returns `False`, reinstall `torch` from the wheel index that matches your CUDA driver.
 
-`torch` is declared as `torch>=2.2` and resolves to whatever build your index serves. Training
-needs a build matching your CUDA driver; if `torch.cuda.is_available()` is `False` on a machine
-with a working GPU, reinstall torch from the wheel index for your driver's CUDA version.
-Building splits, collecting results and drawing figures do not need a GPU.
+## Data
 
-Rebuilding the cluster map needs `mmseqs` on `PATH`; rebuilding the BLAST table needs
-`makeblastdb` and `blastp`. Both rebuilds are optional — the tables are committed.
+The source datasets are in `data/sources/`; `data/sources/SOURCES.md` lists their origin,
+terms and preprocessing. Two files are hosted on Zenodo and are downloaded and
+checksum-verified by:
 
-## Hardware
+```
+python data/fetch_raw_data.py
+```
 
-Every experiment runs sequentially on **one GPU**. `thermality.run_experiment` walks a bundle's
-configs in order, pretraining first, then the fine-tunes that start from the last checkpoint
-the pretraining leaves behind. Set `CUDA_VISIBLE_DEVICES` to pick the GPU. The authors used
-A100s; the GPU-hours in the table below are what the fine-tuning stages took on them.
-
-Disk: a pretraining run keeps up to 20 checkpoints of a few tens of MB each; Exp 1 has 11
-pretraining runs.
-
-## Reproducing the paper
-
-Six steps per experiment. `<name>` is one of `exp1_data_inclusion`, `exp2_wt_inclusion`,
-`exp2_bitscore_norm`, `exp2_d_esm`; each bundle's README gives the exact commands, including
-the two `--arm` calls Exp 2.3 needs.
-
-1. **Fetch** the two large source files (once, for all experiments):
-
-   ```
-   python data/fetch_raw_data.py
-   ```
-
-2. **Rebuild the derived inputs** — optional. The cluster map, the BLAST table and the
-   embeddings are committed or fetched; the scripts in `data/` regenerate them and document
-   the parameters.
-
-3. **Build the split** for the experiment. Writes `data/splits/<name>/`, deterministically:
-
-   ```
-   python experiments/<name>/build_split.py
-   ```
-
-4. **Train** every config of the bundle, on one GPU, in order. Each run writes its checkpoints
-   under `checkpoints/<name>/` and its per-step, per-cluster metrics to
-   `results/runs/<name>/<run>.tsv`:
-
-   ```
-   python -m thermality.run_experiment experiments/<name>
-   ```
-
-   `--dry-run` prints the commands without running them. A single run is
-   `python -m thermality.train -c <config>` or `python -m thermality.finetune -c <config>`.
-
-5. **Collect** the run metrics into the tables the figure reads, `results/<name>*.tsv`:
-
-   ```
-   python -m thermality.collect_results experiments/<name>
-   ```
-
-6. **Draw the figure** from `results/` alone:
-
-   ```
-   python experiments/<name>/figures.py
-   ```
-
-   The script writes `figures/*.svg` and prints the summary statistic the paper reports
-   (final RMSE, Spearman correlation) for you to compare.
+| file | size | content |
+|---|---|---|
+| `mega_smdi.tsv` | 141 MB | mega-scale stability dataset |
+| `wt_embeddings.tsv` | 99 MB | ESM-2 embeddings of the wild types (Exp 2.3) |
 
 ## Experiments
 
-| bundle | question | paper | training | GPU-hours |
+| bundle | paper | question | runs | GPU-hours (A100) |
 |---|---|---|---|---|
-| [`exp1_data_inclusion`](experiments/exp1_data_inclusion/README.md) | Does adding target-cluster sequences to pretraining help the target clusters more than the control clusters, and how does that compare with fine-tuning? | Fig. 2; Fig. 1, panel a | 11 pretrains @ 8500 steps, 16 fine-tunes @ 1200 | ~16 for the fine-tunes |
-| [`exp2_wt_inclusion`](experiments/exp2_wt_inclusion/README.md) | How much does fine-tuning on a wild type's own mutants help, against fine-tuning on a different wild type's? | Fig. 3, panel a | 1 pretrain @ 8500, 10 fine-tunes @ 1200 | ~59 |
-| [`exp2_bitscore_norm`](experiments/exp2_bitscore_norm/README.md) | How does the gain from fine-tuning fall off with the sequence similarity between the two wild types? | Fig. 3, panel b | 1 pretrain @ 8500, 24 fine-tunes @ 1200 | ~79 |
-| [`exp2_d_esm`](experiments/exp2_d_esm/README.md) | The same, against ESM embedding distance, within and across clusters | Fig. 3, panel c | 2 pretrains @ 8500, 60 fine-tunes @ 1200 | ~200 |
-| [`exp1_data_inclusion_650m`](experiments/exp1_data_inclusion_650m/README.md) | Exp 1 with ESM-2 650M | Supplementary | 2 pretrains @ 8500 | — |
+| [`exp1_data_inclusion`](experiments/exp1_data_inclusion/README.md) | Fig. 1a, Fig. 2 | Does adding target-cluster sequences to pretraining help the target clusters more than the control clusters, and how does that compare with fine-tuning? | 11 pretraining, 17 fine-tuning | ~16 (fine-tuning only) |
+| [`exp2_wt_inclusion`](experiments/exp2_wt_inclusion/README.md) | Fig. 3a | How much does fine-tuning on a wild type's own mutants help, compared with a different wild type's? | 1 pretraining, 10 fine-tuning | ~59 |
+| [`exp2_bitscore_norm`](experiments/exp2_bitscore_norm/README.md) | Fig. 3b | How does the gain from fine-tuning change with the sequence similarity between two wild types? | 1 pretraining, 24 fine-tuning | ~79 |
+| [`exp2_d_esm`](experiments/exp2_d_esm/README.md) | Fig. 3c | The same against ESM embedding distance, within and across clusters | 2 pretraining, 60 fine-tuning | ~200 |
+| [`exp1_data_inclusion_650m`](experiments/exp1_data_inclusion_650m/README.md) | Supplementary | Exp 1 with ESM-2 650M | 2 pretraining | — |
 
-The schematic of Fig. 1, panel c is drawn by `python figures/point_cloud.py` from synthetic
-points; it reads no data. The architecture drawing of Fig. 1, panel b is hand-made and has no
-generator.
+Each bundle's README describes its split, its runs, the exact commands and the figure to
+compare against.
 
-## Data and licence
+## Reproducing an experiment
 
-The code is MIT-licensed; see `LICENSE`. The datasets under `data/sources/` are third-party
-redistributions with their own terms, documented per dataset in `data/sources/SOURCES.md`. Two
-source files are too large to commit and are published at
-https://doi.org/10.5281/zenodo.22207909; `data/fetch_raw_data.py` retrieves them and verifies
-their checksums.
+`<name>` is a bundle from the table above.
+
+| step | command | output |
+|---|---|---|
+| 1. Fetch data (once) | `python data/fetch_raw_data.py` | `data/sources/` |
+| 2. Build the split | `python experiments/<name>/build_split.py` | `data/splits/<name>/` |
+| 3. Train | `python -m thermality.run_experiment experiments/<name>` | `checkpoints/<name>/`, `results/runs/<name>/*.tsv` |
+| 4. Collect metrics | `python -m thermality.collect_results experiments/<name>` | `results/<name>*.tsv` |
+| 5. Draw figures | `python experiments/<name>/figures.py` | `figures/*.svg` |
+
+- Splits are deterministic.
+- Step 3 runs every config of the bundle sequentially on one GPU: pretraining first, then the
+  fine-tuning runs, which start from the last pretraining checkpoint. Select the GPU with
+  `CUDA_VISIBLE_DEVICES`. `--dry-run` prints the commands without running them.
+- A single run: `python -m thermality.train -c <config>` (pretraining) or
+  `python -m thermality.finetune -c <config>` (fine-tuning).
+- Step 5 also prints the summary statistics reported in the paper (final RMSE, Spearman
+  correlation).
+- Steps 2, 4 and 5 do not need a GPU.
+- A pretraining run keeps up to 20 checkpoints of a few tens of MB each.
+
+Fig. 1c (the data-partition schematic) is drawn from synthetic points by
+`python figures/point_cloud.py`.
+
+### Rebuilding the derived tables (optional)
+
+The cluster map, the BLAST table and the embeddings are provided. To regenerate them:
+
+| script | output | needs |
+|---|---|---|
+| `data/build_cluster_map.py` | MMseqs2 clustering of the wild types | `mmseqs` |
+| `data/build_blast_table.py` | all-versus-all blastp table | `makeblastdb`, `blastp` |
+| `data/build_wt_embeddings.py` | mean-pooled ESM-2 embeddings of the wild types | GPU recommended |
+
+## Repository layout
+
+```
+data/
+  fetch_raw_data.py         downloads the Zenodo files
+  build_*.py                optional rebuild of the derived tables
+  sources/                  source datasets, cluster map, BLAST table, SOURCES.md
+experiments/<name>/
+  README.md                 split, runs, commands, figure to compare
+  build_split.py            data/sources/ -> data/splits/<name>/
+  configs/                  one YAML per training run
+  figures.py                results/<name>*.tsv -> figures/*.svg
+figures/point_cloud.py      Fig. 1c
+src/thermality/
+  config.py                 config defaults; a run is identified by its config path
+  train.py                  pretraining
+  finetune.py               fine-tuning, one model per cluster or wild-type pair
+  run_experiment.py         runs every config of a bundle
+  collect_results.py        per-run metrics -> result tables
+  model/                    architecture, datasets, collation, metrics
+```
+
+Pipeline outputs (`data/splits/`, `checkpoints/`, `results/`, `figures/*.svg`, `logs/`) are
+git-ignored.
+
+## Licence
+
+The code is MIT-licensed (`LICENSE`). The datasets in `data/sources/` are third-party data
+under their own terms, listed in `data/sources/SOURCES.md`.
