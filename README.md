@@ -14,6 +14,7 @@ a fine-tuning set and an evaluation set determines the gain from fine-tuning.
 
 - Python 3.10 or newer, and [uv](https://docs.astral.sh/uv/)
 - One CUDA GPU (the authors used A100s)
+- Disk space for checkpoints: 25–100 GB per experiment, see [Disk space](#disk-space)
 - Internet access on first run, to download the ESM-2 weights from Hugging Face
 - Optional, only for rebuilding the derived tables: `mmseqs`, `makeblastdb` and `blastp` on
   `PATH`
@@ -60,14 +61,15 @@ compare against.
 
 ## Reproducing an experiment
 
-`<name>` is a bundle from the table above.
+`<name>` is one of the four 8M bundles from the table above. The 650M bundle has its own,
+shorter command list in its README.
 
 | step | command | output |
 |---|---|---|
 | 1. Fetch data (once) | `python data/fetch_raw_data.py` | `data/sources/` |
 | 2. Build the split | `python experiments/<name>/build_split.py` | `data/splits/<name>/` |
 | 3. Train | `python -m thermality.run_experiment experiments/<name>` | `checkpoints/<name>/`, `results/runs/<name>/*.tsv` |
-| 4. Collect metrics | `python -m thermality.collect_results experiments/<name>` | `results/<name>*.tsv` |
+| 4. Collect metrics | `python -m thermality.collect_results experiments/<name>` | `results/*.tsv` (named in each bundle's README) |
 | 5. Draw figures | `python experiments/<name>/figures.py` | `figures/*.svg` |
 
 - Splits are deterministic.
@@ -79,14 +81,33 @@ compare against.
 - Step 5 also prints the summary statistics reported in the paper (final RMSE, Spearman
   correlation).
 - Steps 2, 4 and 5 do not need a GPU.
-- A pretraining run keeps up to 20 checkpoints of a few tens of MB each.
+
+### Disk space
+
+A checkpoint of the 8M model is about 100 MB. A pretraining run keeps up to 20 checkpoints
+(about 2 GB); a fine-tuning run keeps up to 2 checkpoints for each model it trains (about
+0.2 GB per cluster or wild-type pair). Approximate totals under `checkpoints/`:
+
+| bundle | pretraining | fine-tuning |
+|---|---|---|
+| `exp1_data_inclusion` | 22 GB (11 runs) | 48 GB (17 runs × 14 clusters) |
+| `exp2_wt_inclusion` | 2 GB | 26 GB (10 runs × 13 clusters) |
+| `exp2_bitscore_norm` | 2 GB | 23 GB (57 pairs × 2 directions) |
+| `exp2_d_esm` | 4 GB (2 runs) | 58 GB (146 pairs × 2 directions) |
+| `exp1_data_inclusion_650m` | 100 GB (2 runs, about 2.6 GB per checkpoint) | — |
+
+Steps 4 and 5 read only `results/`, so the fine-tuning checkpoints can be deleted once a
+bundle has finished training. Keep the pretraining checkpoints for as long as fine-tuning
+runs still have to start from them.
 
 Fig. 1c (the data-partition schematic) is drawn from synthetic points by
-`python figures/point_cloud.py`.
+`python figures/point_cloud.py`, which writes `figures/data.svg`.
 
 ### Rebuilding the derived tables (optional)
 
-The cluster map, the BLAST table and the embeddings are provided. To regenerate them:
+The cluster map, the BLAST table and the embeddings are provided. To regenerate them, run the
+script with `--out <file>`. Write to a path outside `data/sources/` to keep the provided
+tables; `python data/fetch_raw_data.py --force` restores the Zenodo files.
 
 | script | output | needs |
 |---|---|---|
@@ -105,7 +126,7 @@ experiments/<name>/
   README.md                 split, runs, commands, figure to compare
   build_split.py            data/sources/ -> data/splits/<name>/
   configs/                  one YAML per training run
-  figures.py                results/<name>*.tsv -> figures/*.svg
+  figures.py                results/*.tsv -> figures/*.svg
 figures/point_cloud.py      Fig. 1c
 src/thermality/
   config.py                 config defaults; a run is identified by its config path

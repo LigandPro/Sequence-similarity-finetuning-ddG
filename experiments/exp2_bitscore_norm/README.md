@@ -26,7 +26,7 @@ same cluster, each wild type with more than 1000 records, and binned by
 |---|---|
 | `pretrain.tsv`, `heldout_val.tsv` | pretraining corpus and its validation set |
 | `<lo>_<hi>/` | one directory per similarity bin, 12 bins from `0.099_0.2` to `0.95_1.0`, up to five pairs each |
-| `<lo>_<hi>/wt{1,2}_train/`, `<lo>_<hi>/wt{1,2}_test/` | training and test mutants of each wild type, one file per pair |
+| `<lo>_<hi>/wt{1,2}_train/`, `<lo>_<hi>/wt{1,2}_test/` | 800 training and 200 test mutants of each wild type, sampled without overlap, one file per pair |
 
 ## Runs
 

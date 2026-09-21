@@ -43,6 +43,11 @@ is `wt1_test` and the mismatched one `wt2_test`; for a `wt2` run the reverse.
 run on its matched and mismatched test set. N = 0 is the pretrained model evaluated before
 the first fine-tuning step.
 
+| column | values |
+|---|---|
+| `arm` | `matched` — evaluated on the test set of the wild type the model was trained on; `mismatched` — on the other wild type's test set |
+| `direction` | `1` — a `wt1_train` run; `2` — a `wt2_train` run |
+
 ## Compare with the paper
 
 `figures/exp21.svg` against Fig. 3a. The script prints the N = 0 baseline and the matched and

@@ -9,7 +9,7 @@ terms of its original publication, given below.
 
 | file | content | rows | location |
 |---|---|---|---|
-| `mega_smdi.tsv` | mega-scale folding stability | — | Zenodo (141 MB) |
+| `mega_smdi.tsv` | mega-scale folding stability | 561,360 | Zenodo (141 MB) |
 | `fireprot.tsv` | FireProtDB | 3,247 | repository |
 | `tmdbs.tsv` | ThermoMutDB, single substitutions | 3,010 | repository |
 | `S2648.tsv` | S2648 | 2,648 | repository |

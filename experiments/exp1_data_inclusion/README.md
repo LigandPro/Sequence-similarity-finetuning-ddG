@@ -23,7 +23,7 @@ python experiments/exp1_data_inclusion/figures.py
 | path | content |
 |---|---|
 | `pretrain.tsv` | pretraining corpus, single substitutions only |
-| `heldout_val.tsv` | validation set of the pretraining runs |
+| `test/heldout_val.tsv` | validation set of the pretraining runs |
 | `test/target_per_cluster/`, `test/control_per_cluster/` | 14 target and 14 control evaluation clusters, one file each, plus the pooled `all_target.tsv` / `all_control.tsv` |
 | `target_train/<N>/` | N sequences per target cluster held out for training, one file per cluster, and `pretrain_with_all_target_train.tsv`, the corpus with those sequences added. N = 10, 20, 50, 100, 200, 300, 400, 600, 800, 1000 |
 
@@ -38,8 +38,13 @@ python experiments/exp1_data_inclusion/figures.py
 | `target_train_after_pretrain/` | fine-tune from pretrained | one model per target cluster on its N sequences, from the baseline's last checkpoint | 9 | 1200 |
 | `target_train_only/` | fine-tune from scratch | the same, from random initialisation | 8 | 300 (1200 for N = 20) |
 
-Batch size and learning rate are set in each config; fine-tuning file names carry the
-learning rate.
+Batch size and learning rate are set in each config. Config file names:
+
+| pattern | regime |
+|---|---|
+| `pretrain_with_target_train/<N>_lr<LR>.yaml` | pretrain with target-train on N sequences; `batch_800_lr3e-4.yaml` is the N = 800 run |
+| `target_train_after_pretrain/chkft_<N>_lr<LR>.yaml` | fine-tune from the pretrained checkpoint on N sequences |
+| `target_train_only/cft_<N>_lr<LR>.yaml` | fine-tune from scratch on N sequences |
 
 ## Outputs
 

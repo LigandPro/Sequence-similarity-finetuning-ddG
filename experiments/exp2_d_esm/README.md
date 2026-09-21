@@ -18,7 +18,8 @@ python experiments/exp2_d_esm/figures.py
 
 ## Split
 
-`build_split.py --arm <arm>` writes `data/splits/exp2_d_esm/<arm>/`. Pairs are binned by
+`build_split.py --arm <arm>` writes `data/splits/exp2_d_esm/<arm>/`. Each wild type of a pair
+has more than 1000 records. Pairs are binned by
 `d_esm`, the squared L2 distance between the two wild types' mean-pooled ESM-2 embeddings
 (`data/sources/wt_embeddings.tsv`). Bins are 0.5 wide up to 6.0 and 1.0 wide beyond; bins the
 data cannot fill are absent.
@@ -27,7 +28,7 @@ data cannot fill are absent.
 |---|---|
 | `<arm>/pretrain.tsv`, `<arm>/heldout_val.tsv` | the arm's pretraining corpus and its validation set |
 | `<arm>/<lo>_<hi>/` | one directory per distance bin, up to five pairs each |
-| `<arm>/<lo>_<hi>/wt{1,2}_train/`, `<arm>/<lo>_<hi>/wt{1,2}_test/` | training and test mutants of each wild type, one file per pair |
+| `<arm>/<lo>_<hi>/wt{1,2}_train/`, `<arm>/<lo>_<hi>/wt{1,2}_test/` | 800 training and 200 test mutants of each wild type, sampled without overlap, one file per pair |
 
 ## Runs
 
@@ -42,7 +43,8 @@ Every fine-tuned model is evaluated on both wild types' test sets.
 
 `collect_results` writes `results/exp2_d_esm.tsv` with columns
 `pair, wt1, wt2, arm, bin, direction, d_esm, discrepancy`, two rows per pair, one per
-direction. The discrepancy is defined as in Exp 2.2.
+direction. The discrepancy and `direction` are defined as in Exp 2.2; `arm` is `within` or
+`across`.
 
 ## Compare with the paper
 
