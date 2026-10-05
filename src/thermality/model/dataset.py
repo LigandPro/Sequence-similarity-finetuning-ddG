@@ -274,7 +274,7 @@ class HierarchicalSyntheticDataset(Dataset):
             
             return {'wt': wt, 'mut': mut, 'labels': float(label), 'cluster': torch.tensor(-1, dtype=torch.long)}
         
-        # Fallback if all retries failed - return a simple null mutation
-        cluster = self.cluster_list[0]
-        wt = self.wt_lists[cluster][0]
+        # Fallback if all retries failed - return a null mutation of a WT sampled from the requested cluster
+        cluster = self.cluster_list[idx % len(self.cluster_list)]
+        wt = random.choice(self.wt_lists[cluster])
         return {'wt': wt, 'mut': wt, 'labels': 0.0, 'cluster': torch.tensor(-1, dtype=torch.long)}
