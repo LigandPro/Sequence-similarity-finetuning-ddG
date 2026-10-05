@@ -9,6 +9,7 @@ pairs from the same cluster (`within`) and from different clusters (`across`).
 
 ```
 python data/fetch_raw_data.py
+python data/preprocess.py
 python experiments/exp2_d_esm/build_split.py --arm within
 python experiments/exp2_d_esm/build_split.py --arm across
 python -m thermality.run_experiment experiments/exp2_d_esm

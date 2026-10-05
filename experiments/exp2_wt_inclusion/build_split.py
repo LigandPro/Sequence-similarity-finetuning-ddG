@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import argparse
 import random
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RAW = REPO_ROOT / "data" / "sources"
+PROCESSED = REPO_ROOT / "data" / "processed"
 DEFAULT_OUT = REPO_ROOT / "data" / "splits"
 ROOT_NAME = "exp2_wt_inclusion"
 
@@ -26,37 +27,14 @@ TRAIN_SAMPLE_SIZE = 800
 TEST_SAMPLE_SIZE = 200
 TRAIN_POPULATIONS = [10, 20, 50, 100, 200, 400, 800]
 
-TRAIN_SOURCES = ["mega_smdi", "S2648", "fireprot", "Ssym", "tmdbs"]
 TEST_SOURCES = ["mega_smdi"]
-CLUSTER_FILE = "mega_S2648_S669_Ssym_p53_M_ptmuld_ptmulnr_fireprot_tmdbs_tmdbm_cluster.tsv"
-COLUMNS_TO_KEEP = ["wt_uid", "ddG", "mutant_seq", "wt_seq", "mutation_type"]
 
 
-def read_sources(sources: list[str]) -> pd.DataFrame:
-    return pd.concat([pd.read_csv(RAW / f"{s}.tsv", sep="\t", low_memory=False) for s in sources])
-
-
-def keep_single_substitutions(dataset: pd.DataFrame) -> pd.DataFrame:
-    """Rows whose mutant differs from the wild type at exactly one position."""
-    same_length = dataset["wt_seq"].astype(str).str.len() == dataset["mutant_seq"].astype(str).str.len()
-    filtered = dataset[same_length]
-    differences = np.array(
-        [
-            sum(a != b for a, b in zip(wt, mutant))
-            for wt, mutant in zip(
-                filtered["wt_seq"].astype(str).values, filtered["mutant_seq"].astype(str).values
-            )
-        ]
-    )
-    return filtered.iloc[differences == 1][["wt_uid", "ddG", "mutant_seq", "wt_seq"]]
-
-
-def preprocess(dataset: pd.DataFrame, clusters: pd.DataFrame) -> pd.DataFrame:
-    if "mutation_type" not in dataset.columns:
-        dataset["mutation_type"] = "single"
-    dataset = dataset[COLUMNS_TO_KEEP]
-    dataset = dataset.merge(clusters[["wt_uid", "cluster"]], on="wt_uid", how="left")
-    return dataset.drop_duplicates(subset=["mutant_seq", "wt_uid"])
+def read_processed(name: str) -> pd.DataFrame:
+    path = PROCESSED / name
+    if not path.exists():
+        sys.exit("run python data/preprocess.py first")
+    return pd.read_csv(path, sep="\t", low_memory=False)
 
 
 def valid_clusters(test_dataset: pd.DataFrame, cluster_names: list) -> dict:
@@ -101,11 +79,8 @@ def build(out_root: Path) -> None:
     np.random.seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
 
-    clusters = pd.read_csv(RAW / CLUSTER_FILE, sep="\t").drop_duplicates(subset=["wt_uid"], keep="first")
-
-    train_dataset = read_sources(TRAIN_SOURCES).drop_duplicates(subset=["mutant_seq", "wt_uid"])
-    train_dataset = preprocess(keep_single_substitutions(train_dataset), clusters)
-    test_dataset = preprocess(keep_single_substitutions(read_sources(TEST_SOURCES)), clusters)
+    train_dataset = read_processed("mutations.tsv")
+    test_dataset = train_dataset[train_dataset["source"].isin(TEST_SOURCES)]
 
     cluster_names = list(train_dataset[["cluster"]].drop_duplicates(subset=["cluster"], keep="first")["cluster"])
     valid = valid_clusters(test_dataset, cluster_names)
@@ -144,6 +119,8 @@ def build(out_root: Path) -> None:
         for tag, (wt_train, _) in per_wt.items():
             wt_train.to_csv(output_dir / f"wt{tag}_train" / f"{cluster}.tsv", sep="\t", index=False)
 
+    train_dataset = train_dataset.assign(mutation_type="single")
+    assert train_dataset["mutation_type"].eq("single").all()
     train_dataset.to_csv(output_dir / "pretrain.tsv", sep="\t", index=False)
     heldout_val.to_csv(output_dir / "heldout_val.tsv", sep="\t", index=False)
     print(f"pretrain rows: {len(train_dataset)}, held-out val rows: {len(heldout_val)}")

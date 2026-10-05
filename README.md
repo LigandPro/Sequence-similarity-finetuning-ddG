@@ -66,20 +66,21 @@ shorter command list in its README.
 | step | command | output |
 |---|---|---|
 | 1. Fetch data (once) | `python data/fetch_raw_data.py` | `data/sources/` |
-| 2. Build the split | `python experiments/<name>/build_split.py` | `data/splits/<name>/` |
-| 3. Train | `python -m thermality.run_experiment experiments/<name>` | `checkpoints/<name>/`, `results/runs/<name>/*.tsv` |
-| 4. Collect metrics | `python -m thermality.collect_results experiments/<name>` | `results/*.tsv` (named in each bundle's README) |
-| 5. Draw figures | `python experiments/<name>/figures.py` | `figures/*.svg` |
+| 2. Preprocess (once) | `python data/preprocess.py` | `data/processed/` |
+| 3. Build the split | `python experiments/<name>/build_split.py` | `data/splits/<name>/` |
+| 4. Train | `python -m thermality.run_experiment experiments/<name>` | `checkpoints/<name>/`, `results/runs/<name>/*.tsv` |
+| 5. Collect metrics | `python -m thermality.collect_results experiments/<name>` | `results/*.tsv` (named in each bundle's README) |
+| 6. Draw figures | `python experiments/<name>/figures.py` | `figures/*.svg` |
 
 - Splits are deterministic.
-- Step 3 runs every config of the bundle sequentially on one GPU: pretraining first, then the
+- Step 4 runs every config of the bundle sequentially on one GPU: pretraining first, then the
   fine-tuning runs, which start from the last pretraining checkpoint. Select the GPU with
   `CUDA_VISIBLE_DEVICES`. `--dry-run` prints the commands without running them.
 - A single run: `python -m thermality.train -c <config>` (pretraining) or
   `python -m thermality.finetune -c <config>` (fine-tuning).
-- Step 5 also prints the summary statistics reported in the paper (final RMSE, Spearman
+- Step 6 also prints the summary statistics reported in the paper (final RMSE, Spearman
   correlation).
-- Steps 2, 4 and 5 do not need a GPU.
+- Steps 2, 3, 5 and 6 do not need a GPU.
 
 ### Disk space
 
@@ -95,7 +96,7 @@ A checkpoint of the 8M model is about 100 MB. A pretraining run keeps up to 20 c
 | `exp2_d_esm` | 4 GB (2 runs) | 58 GB (146 pairs × 2 directions) |
 | `exp1_data_inclusion_650m` | 100 GB (2 runs, about 2.6 GB per checkpoint) | — |
 
-Steps 4 and 5 read only `results/`, so the fine-tuning checkpoints can be deleted once a
+Steps 5 and 6 read only `results/`, so the fine-tuning checkpoints can be deleted once a
 bundle has finished training. Keep the pretraining checkpoints for as long as fine-tuning
 runs still have to start from them.
 
@@ -119,11 +120,12 @@ tables; `python data/fetch_raw_data.py --force` restores the Zenodo files.
 ```
 data/
   fetch_raw_data.py         downloads the Zenodo files
+  preprocess.py             data/sources/ -> data/processed/ (single substitutions, WT pairs)
   build_*.py                optional rebuild of the derived tables
   sources/                  source datasets, cluster map, BLAST table, SOURCES.md
 experiments/<name>/
   README.md                 split, runs, commands, figure to compare
-  build_split.py            data/sources/ -> data/splits/<name>/
+  build_split.py            data/processed/ -> data/splits/<name>/
   configs/                  one YAML per training run
   figures.py                results/*.tsv -> figures/*.svg
 figures/point_cloud.py      Fig. 1c
@@ -136,7 +138,7 @@ src/thermality/
   model/                    architecture, datasets, collation, metrics
 ```
 
-Pipeline outputs (`data/splits/`, `checkpoints/`, `results/`, `figures/*.svg`, `logs/`) are
+Pipeline outputs (`data/processed/`, `data/splits/`, `checkpoints/`, `results/`, `figures/*.svg`, `logs/`) are
 git-ignored.
 
 ## Licence

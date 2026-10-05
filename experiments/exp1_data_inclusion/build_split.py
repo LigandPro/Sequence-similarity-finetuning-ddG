@@ -9,13 +9,14 @@ from __future__ import annotations
 import argparse
 import os
 import random
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RAW = REPO_ROOT / "data" / "sources"
+PROCESSED = REPO_ROOT / "data" / "processed"
 DEFAULT_OUT = REPO_ROOT / "data" / "splits"
 ROOT_NAME = "exp1_data_inclusion"
 
@@ -30,39 +31,13 @@ MAX_TEST_PER_CLUSTER = 500
 
 TARGET_TRAIN_POPULATIONS = [10, 20, 50, 100, 200, 300, 400, 600, 800, 1000]
 
-SOURCES = ["mega_smdi", "S2648", "fireprot", "Ssym", "tmdbs"]
-CLUSTER_FILE = "mega_S2648_S669_Ssym_p53_M_ptmuld_ptmulnr_fireprot_tmdbs_tmdbm_cluster.tsv"
-COLUMNS_TO_KEEP = ["wt_uid", "ddG", "mutant_seq", "wt_seq"]
-
 
 def load_dataset() -> pd.DataFrame:
-    """Concatenate the sources, keeping single substitutions, and attach the cluster map."""
-    filtered_sources = []
-    for source in SOURCES:
-        frame = pd.read_csv(RAW / f"{source}.tsv", sep="\t", low_memory=False)
-        if "mutation_type" in frame.columns:
-            filtered = frame[frame["mutation_type"] == "single"]
-        else:
-            filtered = frame[
-                frame["wt_seq"].astype(str).str.len() == frame["mutant_seq"].astype(str).str.len()
-            ]
-            filtered = filtered[
-                filtered["wt_seq"]
-                .astype(str)
-                .combine(
-                    filtered["mutant_seq"].astype(str),
-                    lambda a, b: sum(x != y for x, y in zip(a, b)),
-                )
-                == 1
-            ]
-        filtered_sources.append(filtered[COLUMNS_TO_KEEP])
-
-    dataset = pd.concat(filtered_sources)
-    dataset["mutation_type"] = "single"
-    dataset = dataset.drop_duplicates(subset=["mutant_seq", "wt_uid"])
-
-    clusters = pd.read_csv(RAW / CLUSTER_FILE, sep="\t")
-    return dataset.merge(clusters[["wt_uid", "cluster"]], on="wt_uid", how="left")
+    """The single substitutions of data/processed/mutations.tsv, with their cluster."""
+    path = PROCESSED / "mutations.tsv"
+    if not path.exists():
+        sys.exit("run python data/preprocess.py first")
+    return pd.read_csv(path, sep="\t", low_memory=False)
 
 
 def annotate(dataset: pd.DataFrame) -> pd.DataFrame:
@@ -157,7 +132,9 @@ def build(out_root: Path) -> None:
     for path in (output_dir, test_path, target_path, control_path):
         path.mkdir(parents=True, exist_ok=True)
 
-    pretrain.to_csv(output_dir / "pretrain.tsv", sep="\t", index=False)
+    pretrain_file = pretrain.assign(mutation_type="single")
+    assert pretrain_file["mutation_type"].eq("single").all()
+    pretrain_file.to_csv(output_dir / "pretrain.tsv", sep="\t", index=False)
     pd.concat(list(control.values())).to_csv(test_path / "all_control.tsv", sep="\t", index=False)
     pd.concat(list(target.values())).to_csv(test_path / "all_target.tsv", sep="\t", index=False)
     heldout_val.to_csv(test_path / "heldout_val.tsv", sep="\t", index=False)
@@ -179,9 +156,9 @@ def build(out_root: Path) -> None:
             sampled.to_csv(amount_path / f"{cluster}.tsv", sep="\t", index=False)
             sampled_this_population = pd.concat([sampled_this_population, sampled])
         sampled_this_population.to_csv(amount_path / "all_target_train.tsv", sep="\t", index=False)
-        pd.concat([pretrain, sampled_this_population]).to_csv(
-            amount_path / "pretrain_with_all_target_train.tsv", sep="\t", index=False
-        )
+        pretrain_with_target_train = pd.concat([pretrain, sampled_this_population]).assign(mutation_type="single")
+        assert pretrain_with_target_train["mutation_type"].eq("single").all()
+        pretrain_with_target_train.to_csv(amount_path / "pretrain_with_all_target_train.tsv", sep="\t", index=False)
 
 
 def main() -> None:

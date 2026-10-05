@@ -9,6 +9,7 @@ The runs use the Exp 1 split; this bundle has no `build_split.py` or `figures.py
 
 ```
 python data/fetch_raw_data.py
+python data/preprocess.py
 python experiments/exp1_data_inclusion/build_split.py
 python -m thermality.run_experiment experiments/exp1_data_inclusion_650m
 ```

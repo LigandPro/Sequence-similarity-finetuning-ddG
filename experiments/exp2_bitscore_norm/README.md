@@ -9,6 +9,7 @@ function of the sequence similarity between the two?
 
 ```
 python data/fetch_raw_data.py
+python data/preprocess.py
 python experiments/exp2_bitscore_norm/build_split.py
 python -m thermality.run_experiment experiments/exp2_bitscore_norm
 python -m thermality.collect_results experiments/exp2_bitscore_norm

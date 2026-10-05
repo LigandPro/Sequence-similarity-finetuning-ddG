@@ -9,6 +9,7 @@ fine-tuning on a different wild type's mutants?
 
 ```
 python data/fetch_raw_data.py
+python data/preprocess.py
 python experiments/exp2_wt_inclusion/build_split.py
 python -m thermality.run_experiment experiments/exp2_wt_inclusion
 python -m thermality.collect_results experiments/exp2_wt_inclusion

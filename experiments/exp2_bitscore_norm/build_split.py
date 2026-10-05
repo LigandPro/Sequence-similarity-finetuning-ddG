@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import argparse
 import random
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RAW = REPO_ROOT / "data" / "sources"
+PROCESSED = REPO_ROOT / "data" / "processed"
 DEFAULT_OUT = REPO_ROOT / "data" / "splits"
 ROOT_NAME = "exp2_bitscore_norm"
 
@@ -27,44 +28,14 @@ TRAIN_SAMPLE_SIZE = 800
 TEST_SAMPLE_SIZE = 200
 BINS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
 
-SOURCES = ["mega_smdi", "fireprot", "Ssym", "tmdbs", "S2648", "S669"]
-CLUSTER_FILE = "mega_S2648_S669_Ssym_p53_M_ptmuld_ptmulnr_fireprot_tmdbs_tmdbm_cluster.tsv"
-COLUMNS_TO_KEEP = ["wt_uid", "ddG", "mutant_seq", "wt_seq", "mutation_type"]
 COLUMNS_TO_SAVE = ["mutant_seq", "wt_uid", "wt_seq", "cluster", "ddG"]
 
 
-def preprocess(dataset: pd.DataFrame, clusters: pd.DataFrame) -> pd.DataFrame:
-    if "mutation_type" not in dataset.columns:
-        dataset["mutation_type"] = "single"
-    dataset = dataset[COLUMNS_TO_KEEP]
-    dataset = dataset.merge(clusters[["wt_uid", "cluster"]], on="wt_uid", how="left")
-    return dataset.drop_duplicates(subset=["mutant_seq", "wt_uid"])
-
-
-def load_blast(clusters: pd.DataFrame) -> pd.DataFrame:
-    """The blastp table, one row per ordered WT pair, with the normalised bitscore attached."""
-    blast = pd.read_csv(RAW / "ALL_SEQS_blastp_named.tsv", sep="\t")
-    blast["qseqid"] = blast["qseqid"].str.split("_").str[0]
-    blast["sseqid"] = blast["sseqid"].str.split("_").str[0]
-    wt_uid_to_cluster = clusters.set_index("wt_uid")["cluster"]
-    blast["qseq_cluster"] = blast["qseqid"].map(wt_uid_to_cluster)
-    blast["sseq_cluster"] = blast["sseqid"].map(wt_uid_to_cluster)
-    blast.drop_duplicates(subset=["qseqid", "sseqid"], inplace=True)
-
-    self_bitscore = blast[blast["qseqid"] == blast["sseqid"]].set_index("qseqid")["bitscore"]
-    denominator = 0.5 * (blast["qseqid"].map(self_bitscore) + blast["sseqid"].map(self_bitscore))
-    blast["bitscore_norm"] = blast["bitscore"] / denominator
-    return blast
-
-
-def desymmetrise(blast: pd.DataFrame) -> pd.DataFrame:
-    """Keep one row per unordered pair, retaining every self-pair."""
-    qseqid = blast["qseqid"].values
-    sseqid = blast["sseqid"].values
-    pair_df = blast.copy()
-    pair_df["dup_key"] = list(zip(np.minimum(qseqid, sseqid), np.maximum(qseqid, sseqid)))
-    duplicated = (qseqid != sseqid) & pair_df.duplicated(subset="dup_key", keep="first")
-    return blast.loc[~duplicated].reset_index(drop=True)
+def read_processed(name: str) -> pd.DataFrame:
+    path = PROCESSED / name
+    if not path.exists():
+        sys.exit("run python data/preprocess.py first")
+    return pd.read_csv(path, sep="\t", low_memory=False)
 
 
 def sample_pairs(blast: pd.DataFrame, train_dataset: pd.DataFrame) -> dict:
@@ -126,21 +97,17 @@ def write_bins(sampled_per_bin: dict, train_dataset: pd.DataFrame, output_dir: P
                 wt_test[COLUMNS_TO_SAVE].to_csv(bin_dir / f"wt{tag}_test" / file_name, sep="\t", index=False)
             print(f"  saved {file_name} (bitscore_norm={row['bitscore_norm']:.3f})")
     # heldout_val.tsv keeps this column order, not the order the sampled rows carry.
-    return pd.concat(wt_tests)[["mutant_seq", "wt_uid", "wt_seq", "cluster", "ddG", "mutation_type"]]
+    return pd.concat(wt_tests)[["mutant_seq", "wt_uid", "wt_seq", "cluster", "ddG"]]
 
 
 def build(out_root: Path) -> None:
     np.random.seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
 
-    clusters = pd.read_csv(RAW / CLUSTER_FILE, sep="\t").drop_duplicates(subset=["wt_uid"], keep="first")
-    train_dataset = preprocess(
-        pd.concat([pd.read_csv(RAW / f"{s}.tsv", sep="\t", low_memory=False) for s in SOURCES]), clusters
-    )
-
-    blast = load_blast(clusters)
-    blast = blast[blast["qseq_cluster"] == blast["sseq_cluster"]]
-    blast = desymmetrise(blast)
+    train_dataset = read_processed("mutations.tsv")
+    assert train_dataset.index.is_unique
+    blast = read_processed("wt_pairs.tsv")
+    blast = blast[blast["same_cluster"]]
 
     sampled_per_bin = sample_pairs(blast, train_dataset)
 
@@ -152,6 +119,8 @@ def build(out_root: Path) -> None:
 
     output_dir = out_root / ROOT_NAME
     output_dir.mkdir(parents=True, exist_ok=True)
+    clean_train_dataset = clean_train_dataset.assign(mutation_type="single")
+    assert clean_train_dataset["mutation_type"].eq("single").all()
     clean_train_dataset.to_csv(output_dir / "pretrain.tsv", sep="\t", index=False)
 
     all_wt_tests = write_bins(sampled_per_bin, train_dataset, output_dir)

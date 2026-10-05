@@ -10,6 +10,7 @@ same sequences?
 
 ```
 python data/fetch_raw_data.py
+python data/preprocess.py
 python experiments/exp1_data_inclusion/build_split.py
 python -m thermality.run_experiment experiments/exp1_data_inclusion
 python -m thermality.collect_results experiments/exp1_data_inclusion
