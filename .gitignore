@@ -11,6 +11,9 @@ __pycache__/
 # Internal working notes — not part of the published artifact
 .claude/
 understanding_paper.md
+CHANGES.md
+KNOWN_DISCREPANCIES.md
+AGENTS.md
 
 # Large source files — fetched from Zenodo by data/fetch_raw_data.py
 data/sources/mega_smdi.tsv
